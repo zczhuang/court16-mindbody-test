@@ -3,84 +3,101 @@ import Header from "@/components/Header";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
+    <>
       <Header />
-
-      <main className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <div className="mb-12">
-          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight mb-4">
-            Get Started at
-            <br />
-            Court 16
+      <div className="c16-container" style={{ paddingBottom: 80 }}>
+        <section style={{ padding: "80px 0 40px", textAlign: "center" }}>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>
+            Court 16 · Tennis Remixed
+          </div>
+          <h1 className="section-title" style={{ fontSize: "clamp(40px, 7vw, 72px)" }}>
+            Book a <em>free</em> kids trial
           </h1>
-          <p className="text-lg text-c16-gray-dark max-w-md mx-auto">
-            Tennis for kids and adults at 6 locations across NY, PA, and MA.
+          <p className="section-sub" style={{ marginTop: 14 }}>
+            Six clubs across NY, PA &amp; MA. Pick a club, request a class, and we&apos;ll
+            confirm within a few hours. No MindBody setup, no credit card.
           </p>
-        </div>
+          <div style={{ marginTop: 28, display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link href="/trial" className="btn primary">
+              Start your booking
+              <svg viewBox="0 0 16 16" width="14" height="14">
+                <path
+                  d="M2 8h11M9 4l4 4-4 4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
+            <a
+              href="https://www.court16.com/adults"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn ghost"
+            >
+              Adult classes
+            </a>
+          </div>
+        </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto mb-16">
-          <Link
-            href="/trial"
-            className="p-6 rounded-xl border-2 border-c16-yellow bg-yellow-50 hover:shadow-lg transition-all text-left"
+        <section style={{ padding: "40px 0" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 16,
+            }}
           >
-            <div className="text-3xl mb-3">🎾</div>
-            <h2 className="font-extrabold text-lg mb-1">For Kids</h2>
-            <p className="text-sm font-semibold text-c16-black mb-2">
-              Book a Free Trial
-            </p>
-            <p className="text-xs text-c16-gray-dark">
-              Ages 3&ndash;17. Browse real classes, pick a time, and we&apos;ll confirm within hours.
-            </p>
-          </Link>
-
-          <a
-            href="https://www.court16.com/adults"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-6 rounded-xl border-2 border-gray-200 bg-white hover:border-c16-yellow hover:shadow-lg transition-all text-left"
-          >
-            <div className="text-3xl mb-3">🏸</div>
-            <h2 className="font-extrabold text-lg mb-1">For Adults</h2>
-            <p className="text-sm font-semibold text-c16-black mb-2">Try a Class</p>
-            <p className="text-xs text-c16-gray-dark">
-              Intro offers from $58. Drop-in classes, memberships, and social tennis.
-            </p>
-          </a>
-        </div>
-
-        <h3 className="font-bold text-sm text-c16-gray-dark uppercase tracking-wide mb-6">
-          How the kids free trial works
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
-          <div className="p-6 bg-gray-50 rounded-xl">
-            <div className="text-3xl mb-3">🎾</div>
-            <h3 className="font-bold mb-1">Real class experience</h3>
-            <p className="text-sm text-c16-gray-dark">
-              Your child joins an actual group class with peers their age — not a staged demo.
-            </p>
+            <Feature
+              icon="🎾"
+              title="Real class experience"
+              body="Your child joins an actual group class with peers their age — not a staged demo."
+            />
+            <Feature
+              icon="📅"
+              title="Pick your time"
+              body="Browse available classes by club and age group. No guessing, no back-and-forth."
+            />
+            <Feature
+              icon="⚡"
+              title="Confirmed in hours"
+              body="Our team matches your child to the perfect class and confirms within a few hours."
+            />
           </div>
-          <div className="p-6 bg-gray-50 rounded-xl">
-            <div className="text-3xl mb-3">📅</div>
-            <h3 className="font-bold mb-1">Pick your time</h3>
-            <p className="text-sm text-c16-gray-dark">
-              Browse available classes filtered by your child&apos;s age. No guessing, no back-and-forth.
-            </p>
-          </div>
-          <div className="p-6 bg-gray-50 rounded-xl">
-            <div className="text-3xl mb-3">⚡</div>
-            <h3 className="font-bold mb-1">Confirmed in hours</h3>
-            <p className="text-sm text-c16-gray-dark">
-              Our team matches your child to the perfect class and confirms within a few hours.
-            </p>
-          </div>
-        </div>
+        </section>
+      </div>
+    </>
+  );
+}
 
-        <div className="mt-16">
-          <p className="text-sm text-gray-400 font-semibold tracking-wide">
-            6 LOCATIONS ACROSS NY · PA · MA
-          </p>
-        </div>
-      </main>
+function Feature({ icon, title, body }: { icon: string; title: string; body: string }) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "1.5px solid var(--c16-line)",
+        borderRadius: "var(--r-xl)",
+        padding: "22px 22px 20px",
+      }}
+    >
+      <div style={{ fontSize: 28, marginBottom: 10 }}>{icon}</div>
+      <h3
+        style={{
+          fontFamily: "var(--f-display)",
+          fontWeight: 600,
+          fontSize: 18,
+          letterSpacing: "-0.01em",
+          margin: "0 0 6px",
+          color: "var(--c16-black)",
+        }}
+      >
+        {title}
+      </h3>
+      <p style={{ color: "var(--c16-ink-3)", fontSize: 14, margin: 0, lineHeight: 1.55 }}>
+        {body}
+      </p>
     </div>
   );
 }

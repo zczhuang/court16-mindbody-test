@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { TrialClass, TrialRequest, ChildInfo } from "@/lib/trial-types";
+import type { TrialClass, TrialRequest } from "@/lib/trial-types";
 import type { ChildEntry } from "@/components/AgeSelector";
 
 interface Props {
@@ -13,14 +13,10 @@ interface Props {
   onCancel: () => void;
 }
 
-/**
- * Renders as a centered modal overlay — matches the enrollment tool's
- * "pop up over the calendar" interaction. Backdrop click + Escape key
- * both close.
- */
+const AGE_OPTIONS = Array.from({ length: 15 }, (_, i) => i + 3); // 3-17
+
 export default function TrialRequestForm({
   trialClass,
-  kids,
   locationId,
   locationName,
   onSubmit,
@@ -31,12 +27,12 @@ export default function TrialRequestForm({
   const [parentEmail, setParentEmail] = useState("");
   const [parentPhone, setParentPhone] = useState("");
   const [parentBirthDate, setParentBirthDate] = useState("");
-  const [childNames, setChildNames] = useState<string[]>(kids.map(() => ""));
+  const [childFirstName, setChildFirstName] = useState("");
+  const [childAge, setChildAge] = useState<number | "">("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel();
@@ -45,7 +41,6 @@ export default function TrialRequestForm({
     return () => document.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
-  // Lock body scroll while open
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -54,19 +49,14 @@ export default function TrialRequestForm({
     };
   }, []);
 
-  function setChildName(index: number, name: string) {
-    setChildNames((prev) => prev.map((n, i) => (i === index ? name : n)));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (childAge === "") {
+      setError("Child's age is required.");
+      return;
+    }
     setSubmitting(true);
-
-    const children: ChildInfo[] = kids.map((kid, i) => ({
-      firstName: childNames[i],
-      age: kid.age,
-    }));
 
     try {
       await onSubmit({
@@ -75,9 +65,9 @@ export default function TrialRequestForm({
         parentEmail,
         parentPhone,
         parentBirthDate: parentBirthDate || undefined,
-        childFirstName: childNames[0],
-        childAge: kids[0].age,
-        children,
+        childFirstName,
+        childAge: Number(childAge),
+        children: [{ firstName: childFirstName, age: Number(childAge) }],
         locationId,
         locationName,
         classScheduleId: trialClass.classScheduleId,
@@ -88,9 +78,7 @@ export default function TrialRequestForm({
         notes: notes || undefined,
       });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Something went wrong. Please try again.",
-      );
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setSubmitting(false);
     }
   }
@@ -100,169 +88,351 @@ export default function TrialRequestForm({
       role="dialog"
       aria-modal="true"
       aria-labelledby="trial-form-title"
-      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 sm:p-6 bg-black/60"
+      className="trf-backdrop"
       onMouseDown={(e) => {
-        // Close when clicking the backdrop, not when clicking inside the card
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-3">
+      <div className="trf-card">
+        <div className="trf-head">
           <div>
-            <h3 id="trial-form-title" className="font-bold text-lg leading-tight">
-              Request This Trial
+            <div className="eyebrow" style={{ marginBottom: 4 }}>
+              Request this trial
+            </div>
+            <h3 id="trial-form-title" className="trf-title">
+              {trialClass.name}
             </h3>
-            <p className="text-xs text-c16-gray-dark mt-1">
-              {trialClass.levelName} · {trialClass.dayOfWeek} at {trialClass.time} · {trialClass.coach}
-            </p>
+            <div className="trf-meta">
+              <span className="mono">
+                {trialClass.dayOfWeek}, {trialClass.time}
+              </span>
+              <span className="sep">·</span>
+              <span>{trialClass.coach}</span>
+              <span className="sep">·</span>
+              <span>{locationName}</span>
+            </div>
           </div>
           <button
             onClick={onCancel}
             aria-label="Close"
-            className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-lg leading-none text-c16-gray-dark"
+            className="trf-close"
+            type="button"
           >
             ×
           </button>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-3 overflow-y-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-                Your first name *
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={100}
-                value={parentFirstName}
-                onChange={(e) => setParentFirstName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-                placeholder="Your first name"
-              />
+        <form onSubmit={handleSubmit} className="trf-body">
+          <div className="trf-section">
+            <div className="eyebrow">Parent</div>
+            <div className="trf-grid">
+              <Field label="First name *">
+                <input
+                  type="text"
+                  required
+                  value={parentFirstName}
+                  onChange={(e) => setParentFirstName(e.target.value)}
+                  placeholder="First name"
+                  className="trf-input"
+                />
+              </Field>
+              <Field label="Last name *">
+                <input
+                  type="text"
+                  required
+                  value={parentLastName}
+                  onChange={(e) => setParentLastName(e.target.value)}
+                  placeholder="Last name"
+                  className="trf-input"
+                />
+              </Field>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-                Your last name *
-              </label>
+            <Field label="Email *">
               <input
-                type="text"
+                type="email"
                 required
-                maxLength={100}
-                value={parentLastName}
-                onChange={(e) => setParentLastName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-                placeholder="Your last name"
+                value={parentEmail}
+                onChange={(e) => setParentEmail(e.target.value)}
+                placeholder="you@email.com"
+                className="trf-input"
               />
+            </Field>
+            <div className="trf-grid">
+              <Field label="Mobile phone *" hint="Staff calls to confirm within a few hours.">
+                <input
+                  type="tel"
+                  required
+                  value={parentPhone}
+                  onChange={(e) => setParentPhone(e.target.value)}
+                  placeholder="(212) 555-0100"
+                  className="trf-input"
+                />
+              </Field>
+              <Field label="Your date of birth (optional)" hint="Keeps your MindBody account clean.">
+                <input
+                  type="date"
+                  value={parentBirthDate}
+                  onChange={(e) => setParentBirthDate(e.target.value)}
+                  className="trf-input"
+                />
+              </Field>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-              Your email *
-            </label>
-            <input
-              type="email"
-              required
-              value={parentEmail}
-              onChange={(e) => setParentEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-              placeholder="you@email.com"
-            />
+          <div className="trf-section">
+            <div className="eyebrow">Child</div>
+            <div className="trf-grid">
+              <Field label="First name *">
+                <input
+                  type="text"
+                  required
+                  value={childFirstName}
+                  onChange={(e) => setChildFirstName(e.target.value)}
+                  placeholder="Child's first name"
+                  className="trf-input"
+                />
+              </Field>
+              <Field label="Age *">
+                <select
+                  required
+                  value={childAge === "" ? "" : String(childAge)}
+                  onChange={(e) =>
+                    setChildAge(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  className="trf-input"
+                >
+                  <option value="" disabled>
+                    Select age…
+                  </option>
+                  {AGE_OPTIONS.map((a) => (
+                    <option key={a} value={a}>
+                      Age {a}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <Field label="Anything we should know? (optional)">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Allergies, experience level, special requests…"
+                className="trf-input"
+                style={{ resize: "vertical", minHeight: 60 }}
+              />
+            </Field>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-                Mobile phone *
-              </label>
-              <input
-                type="tel"
-                required
-                value={parentPhone}
-                onChange={(e) => setParentPhone(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-                placeholder="(212) 555-0100"
-              />
-              <p className="text-[11px] text-c16-gray-dark mt-1">
-                Staff calls to confirm within a few hours.
-              </p>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-                Your date of birth (optional)
-              </label>
-              <input
-                type="date"
-                value={parentBirthDate}
-                onChange={(e) => setParentBirthDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-              />
-              <p className="text-[11px] text-c16-gray-dark mt-1">
-                Helps us keep your MindBody account clean.
-              </p>
-            </div>
-          </div>
-
-          {kids.map((kid, i) => (
-            <div key={i}>
-              <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-                {kids.length === 1
-                  ? "Child\u2019s first name *"
-                  : `${kid.label}\u2019s first name (age ${kid.age}) *`}
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={100}
-                value={childNames[i]}
-                onChange={(e) => setChildName(i, e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-                placeholder={kids.length === 1 ? "Child\u2019s name" : `${kid.label}\u2019s name`}
-              />
-            </div>
-          ))}
-
-          <div>
-            <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-              Anything we should know? (optional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              maxLength={1000}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow resize-none"
-              placeholder="Allergies, experience level, special requests..."
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg">{error}</div>
-          )}
+          {error && <div className="trf-error">{error}</div>}
         </form>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 px-4 py-3 bg-white border-2 border-gray-300 rounded-xl font-semibold text-sm hover:bg-gray-50 transition-colors"
-          >
-            &larr; Back
+        <div className="trf-foot">
+          <button type="button" onClick={onCancel} className="btn ghost">
+            ← Back
           </button>
           <button
             type="submit"
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-1 px-4 py-3 bg-c16-black text-white rounded-xl font-semibold text-sm hover:bg-c16-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn primary"
           >
-            {submitting ? "Sending..." : "Request This Trial \u2192"}
+            {submitting ? "Sending…" : "Request this trial"}
+            <svg viewBox="0 0 16 16" width="14" height="14">
+              <path
+                d="M2 8h11M9 4l4 4-4 4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
         </div>
       </div>
+
+      <style jsx>{`
+        .trf-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 24px;
+          background: color-mix(in oklab, var(--c16-ink), transparent 40%);
+          backdrop-filter: blur(4px);
+          overflow-y: auto;
+        }
+        @media (min-width: 640px) {
+          .trf-backdrop {
+            align-items: center;
+          }
+        }
+        .trf-card {
+          width: 100%;
+          max-width: 560px;
+          background: var(--c16-paper);
+          border: 2px solid var(--c16-black);
+          border-radius: var(--r-2xl);
+          box-shadow: var(--shadow-pop);
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          max-height: calc(100vh - 48px);
+        }
+        .trf-head {
+          padding: 22px 22px 16px;
+          border-bottom: 1px solid var(--c16-line);
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          background: #fff;
+        }
+        .trf-title {
+          font-family: var(--f-display);
+          font-weight: 700;
+          font-size: 22px;
+          line-height: 1.2;
+          letter-spacing: -0.03em;
+          margin: 0 0 6px;
+          color: var(--c16-black);
+          text-wrap: balance;
+        }
+        .trf-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          font-size: 13px;
+          color: var(--c16-ink-2);
+        }
+        .trf-meta .sep {
+          color: var(--c16-ink-4);
+        }
+        .trf-meta .mono {
+          font-family: var(--f-mono);
+          font-weight: 600;
+        }
+        .trf-close {
+          width: 32px;
+          height: 32px;
+          border-radius: 999px;
+          border: 0;
+          background: transparent;
+          color: var(--c16-ink-3);
+          font-size: 22px;
+          line-height: 1;
+          display: grid;
+          place-items: center;
+        }
+        .trf-close:hover {
+          background: var(--c16-paper-2);
+          color: var(--c16-black);
+        }
+        .trf-body {
+          padding: 18px 22px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .trf-section {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .trf-section .eyebrow {
+          margin-bottom: 2px;
+        }
+        .trf-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        @media (min-width: 520px) {
+          .trf-grid {
+            grid-template-columns: 1fr 1fr;
+          }
+        }
+        .trf-input {
+          width: 100%;
+          padding: 11px 14px;
+          font-size: 14px;
+          font-family: var(--f-sans);
+          font-weight: 500;
+          color: var(--c16-black);
+          background: #fff;
+          border: 1.5px solid var(--c16-line);
+          border-radius: var(--r-md);
+          outline: none;
+          transition: border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+        .trf-input:focus {
+          border-color: var(--c16-black);
+          box-shadow: 0 0 0 3px var(--c16-yellow);
+        }
+        .trf-error {
+          padding: 10px 12px;
+          background: var(--c16-red-soft);
+          color: var(--c16-red);
+          border-radius: var(--r-md);
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .trf-foot {
+          padding: 14px 22px;
+          border-top: 1px solid var(--c16-line);
+          background: var(--c16-paper-2);
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+        }
+      `}</style>
     </div>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      style={{
+        display: "grid",
+        gap: 4,
+        fontSize: 11,
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        color: "var(--c16-ink-3)",
+        fontWeight: 600,
+        fontFamily: "var(--f-mono)",
+      }}
+    >
+      {label}
+      {children}
+      {hint && (
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 500,
+            color: "var(--c16-ink-3)",
+            fontFamily: "var(--f-sans)",
+            letterSpacing: "0",
+            textTransform: "none",
+            marginTop: 2,
+          }}
+        >
+          {hint}
+        </span>
+      )}
+    </label>
   );
 }

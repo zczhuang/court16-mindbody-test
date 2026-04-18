@@ -1,66 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { getLocationById } from "@/config/locations";
 
-interface Props {
-  locationId?: string;
-}
-
-export default function Header({ locationId }: Props) {
-  const enrollUrl = locationId
-    ? `https://court-16-online-enrollment.onrender.com/enroll?location=${locationId}`
-    : "https://court-16-online-enrollment.onrender.com/enroll";
-  const location = locationId ? getLocationById(locationId) : null;
-  const loginUrl = "https://clients.mindbodyonline.com/ASP/main_class.asp";
-
+export default function Header() {
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-100">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-c16-yellow flex items-center justify-center font-bold text-sm border-2 border-c16-black">
-            C16
-          </div>
-          <span className="font-extrabold text-lg tracking-tight hidden sm:inline">
-            TENNIS REMIXED
+    <header className="c16-header">
+      <div className="c16-header-inner">
+        <Link href="/" className="c16-logo">
+          <span className="ball" aria-hidden="true">
+            <svg viewBox="0 0 40 40" width="36" height="36">
+              <circle cx="20" cy="20" r="19" fill="#FFE033" stroke="#1a1a1a" strokeWidth="2" />
+              <path d="M3 20 Q20 6 37 20" fill="none" stroke="#1a1a1a" strokeWidth="1.5" opacity=".55" />
+              <path d="M3 20 Q20 34 37 20" fill="none" stroke="#1a1a1a" strokeWidth="1.5" opacity=".55" />
+            </svg>
           </span>
+          <span className="wordmark">COURT 16</span>
+          <span className="tag">Tennis Remixed</span>
         </Link>
-
-        <div className="flex items-center gap-1 sm:gap-2">
-          <Link
-            href="/trial"
-            className="px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg bg-c16-yellow text-c16-black hover:bg-yellow-300 transition-colors"
-          >
-            Free Trial
-          </Link>
-          <Link
-            href={enrollUrl}
-            className="px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+        <nav className="c16-nav">
+          <Link className="pill yellow" href="/trial">Book Kids Trial</Link>
+          <a
+            href="https://court-16-online-enrollment.onrender.com/enroll"
+            className="link"
             target="_blank"
-            title={location ? `Enroll at ${location.name}` : "Enroll for the season"}
+            rel="noopener noreferrer"
           >
             Enroll
-          </Link>
-
-          <span className="hidden sm:inline text-gray-300 mx-1">|</span>
-
-          <Link
+          </a>
+          <span className="divider" />
+          <a
             href="https://www.court16.com/adults"
-            className="px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+            className="link"
             target="_blank"
+            rel="noopener noreferrer"
           >
             Adults
-          </Link>
-
-          <Link
-            href={loginUrl}
-            className="px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+          </a>
+          <a
+            href="https://clients.mindbodyonline.com/ASP/main_class.asp"
+            className="link"
             target="_blank"
+            rel="noopener noreferrer"
           >
             My Account
-          </Link>
-        </div>
-      </nav>
+          </a>
+        </nav>
+      </div>
     </header>
   );
 }

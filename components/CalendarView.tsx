@@ -40,98 +40,110 @@ export default function CalendarView({
     return map;
   }, [classes]);
 
-  const firstDay = new Date(year, month - 1, 1).getDay();
+  const firstDow = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
 
   const cells: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let i = 0; i < firstDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+    <div className="cal">
+      <div className="cal-head">
         <button
+          type="button"
+          className="cal-nav"
           onClick={onPrevMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-lg font-bold transition-colors"
           aria-label="Previous month"
         >
-          ‹
+          <svg viewBox="0 0 16 16" width="14" height="14">
+            <path
+              d="M10 3l-5 5 5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
-        <h3 className="font-bold text-lg">
+        <div className="cal-title">
           {MONTH_NAMES[month - 1]} {year}
-        </h3>
+        </div>
         <button
+          type="button"
+          className="cal-nav"
           onClick={onNextMonth}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-lg font-bold transition-colors"
           aria-label="Next month"
         >
-          ›
+          <svg viewBox="0 0 16 16" width="14" height="14">
+            <path
+              d="M6 3l5 5-5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-gray-100">
+      <div className="cal-dow">
         {WEEKDAYS.map((d) => (
-          <div
-            key={d}
-            className="py-2 text-center text-xs font-semibold text-gray-400 uppercase"
-          >
-            {d}
-          </div>
+          <div key={d}>{d}</div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7">
+      <div className="cal-body">
         {cells.map((day, i) => {
           if (day === null) {
-            return <div key={`blank-${i}`} className="h-20 border-b border-r border-gray-50" />;
+            return <div key={`blank-${i}`} className="cal-cell empty" />;
           }
-
           const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const dayClasses = classesByDate[dateStr] || [];
+          const has = dayClasses.length > 0;
+          const spots = dayClasses.reduce((s, c) => s + c.spotsAvailable, 0);
+          const isSelected = dateStr === selectedDate;
           const isToday = dateStr === todayStr;
           const isPast = dateStr < todayStr;
-          const isSelected = dateStr === selectedDate;
-          const hasClasses = dayClasses.length > 0;
-          const totalSpots = dayClasses.reduce((s, c) => s + c.spotsAvailable, 0);
 
           return (
             <button
               key={dateStr}
-              onClick={() => (hasClasses && !isPast ? onSelectDate(dateStr) : undefined)}
-              disabled={!hasClasses || isPast}
-              className={`
-                h-20 p-1.5 border-b border-r border-gray-50 text-left transition-all relative
-                ${isPast ? "opacity-40 cursor-default" : ""}
-                ${!hasClasses && !isPast ? "cursor-default" : ""}
-                ${hasClasses && !isPast ? "cursor-pointer hover:bg-yellow-50" : ""}
-                ${isSelected ? "bg-yellow-50 ring-2 ring-c16-yellow ring-inset" : ""}
-              `}
+              type="button"
+              className={`cal-cell ${isPast ? "past" : ""} ${has ? "has" : ""} ${isSelected ? "sel" : ""} ${isToday ? "today" : ""}`}
+              disabled={!has || isPast}
+              onClick={() => onSelectDate(dateStr)}
             >
-              <span
-                className={`text-sm font-semibold ${isToday ? "text-c16-black" : ""}`}
-              >
-                {day}
-              </span>
-              {isToday && (
-                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-c16-yellow rounded-full" />
-              )}
-              {hasClasses && (
-                <div className="absolute bottom-1 left-1 right-1 flex flex-col gap-0.5">
-                  <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-c16-yellow rounded-full shrink-0" />
-                    <span className="text-[10px] font-semibold text-c16-gray-dark truncate">
-                      {dayClasses.length} {dayClasses.length === 1 ? "class" : "classes"}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-c16-gray-dark">
-                    {totalSpots} {totalSpots === 1 ? "spot" : "spots"}
+              <span className="cal-num">{day}</span>
+              {isToday && !isPast && <span className="today-dot" />}
+              {has && (
+                <span className="cal-tag">
+                  <span className="tag-count">
+                    {dayClasses.length} {dayClasses.length === 1 ? "class" : "classes"}
                   </span>
-                </div>
+                  <span className="tag-spots">
+                    {spots} {spots === 1 ? "spot" : "spots"}
+                  </span>
+                </span>
               )}
             </button>
           );
         })}
+      </div>
+
+      <div className="cal-legend">
+        <span>
+          <span className="sw sw-has" /> Classes available
+        </span>
+        <span>
+          <span className="sw sw-sel" /> Selected
+        </span>
+        <span>
+          <span className="sw sw-none" /> No trials
+        </span>
       </div>
     </div>
   );

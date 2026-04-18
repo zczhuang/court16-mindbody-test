@@ -2,28 +2,26 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
-import AgeSelector, { type ChildEntry } from "@/components/AgeSelector";
+import ProgressBar from "@/components/ProgressBar";
 import LocationSelector from "@/components/LocationSelector";
 import CalendarView from "@/components/CalendarView";
-import ClassCard from "@/components/ClassCard";
+import DayDetail from "@/components/DayDetail";
 import TrialRequestForm from "@/components/TrialRequestForm";
 import ConfirmationScreen from "@/components/ConfirmationScreen";
 import type { Location } from "@/config/locations";
 import type { TrialClass, TrialRequest, MindBodyClass } from "@/lib/trial-types";
-import { AGE_TO_LEVEL_MAP } from "@/config/trial-config";
 import {
   parseClass,
   filterByTrialEligibility,
   filterChildrenOnly,
   filterAvailable,
-  formatLongDate,
 } from "@/lib/class-utils";
+import type { ChildEntry } from "@/components/AgeSelector";
 
-type Step = "setup" | "calendar" | "confirmed";
+type Step = "location" | "calendar" | "confirmed";
 
 export default function TrialPage() {
-  const [step, setStep] = useState<Step>("setup");
-  const [kids, setKids] = useState<ChildEntry[]>([]);
+  const [step, setStep] = useState<Step>("location");
   const [location, setLocation] = useState<Location | null>(null);
   const [allClasses, setAllClasses] = useState<TrialClass[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -40,15 +38,6 @@ export default function TrialPage() {
   const [calMonth, setCalMonth] = useState(now.getMonth() + 1);
 
   const dayClasses = selectedDate ? allClasses.filter((c) => c.date === selectedDate) : [];
-
-  const getAllowedLevels = useCallback((): string[] => {
-    const levels = new Set<string>();
-    for (const kid of kids) {
-      const kidLevels = AGE_TO_LEVEL_MAP[String(kid.age)];
-      if (kidLevels) kidLevels.forEach((l) => levels.add(l));
-    }
-    return Array.from(levels);
-  }, [kids]);
 
   const fetchClasses = useCallback(
     async (loc: Location, year: number, month: number) => {
@@ -67,13 +56,7 @@ export default function TrialPage() {
 
         const childrenClasses = filterChildrenOnly(mbClasses);
         const parsed = childrenClasses.map(parseClass);
-        const allowedLevels = getAllowedLevels();
-        let ageFiltered =
-          allowedLevels.length > 0
-            ? parsed.filter((c) => allowedLevels.some((level) => c.levelName === level))
-            : parsed;
-        if (ageFiltered.length === 0 && parsed.length > 0) ageFiltered = parsed;
-        const eligibleFiltered = filterByTrialEligibility(ageFiltered, loc.id);
+        const eligibleFiltered = filterByTrialEligibility(parsed, loc.id);
         const available = filterAvailable(eligibleFiltered);
 
         available.sort((a, b) => {
@@ -89,17 +72,26 @@ export default function TrialPage() {
         setLoading(false);
       }
     },
-    [getAllowedLevels],
+    [],
   );
 
   useEffect(() => {
-    if (location && kids.length > 0 && kids.every((k) => k.age > 0)) {
-      fetchClasses(location, calYear, calMonth);
-    }
-  }, [location, kids, calYear, calMonth, fetchClasses]);
+    if (location && step === "calendar") fetchClasses(location, calYear, calMonth);
+  }, [location, step, calYear, calMonth, fetchClasses]);
 
-  const setupValid =
-    kids.length > 0 && kids.every((k) => k.age > 0) && location !== null;
+  function selectLoc(loc: Location) {
+    setLocation(loc);
+  }
+
+  function continueFromLoc() {
+    if (location) setStep("calendar");
+  }
+
+  function backToLoc() {
+    setStep("location");
+    setSelectedDate(null);
+    setSelectedClass(null);
+  }
 
   function handleDateSelect(date: string) {
     setSelectedDate(date);
@@ -141,8 +133,6 @@ export default function TrialPage() {
     });
     if (!resp.ok) {
       const data = await resp.json().catch(() => ({}));
-      // Server returns `error` as a string or a nested object ({name,message,status,body}).
-      // Pull a human-readable message out of either shape; never serialize [object Object].
       const raw = data.error;
       let message: string;
       if (typeof raw === "string") message = raw;
@@ -160,130 +150,110 @@ export default function TrialPage() {
     setStep("confirmed");
   }
 
-  const ageSummary =
-    kids.length === 1
-      ? `Age ${kids[0].age}`
-      : kids.map((k) => `${k.label}: age ${k.age}`).join(", ");
-
   if (step === "confirmed" && submittedRequest) {
     return (
-      <div className="min-h-screen bg-white">
-        <Header locationId={submittedRequest.locationId} />
+      <>
+        <Header />
         <ConfirmationScreen request={submittedRequest} correlationId={submittedCorrelationId} />
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <Header locationId={location?.id} />
+    <>
+      <Header />
+      <div className="c16-container">
+        <ProgressBar step={step} />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Progress (2 steps) */}
-        <div className="flex items-center gap-2 mb-8 text-xs sm:text-sm">
-          {(["setup", "calendar"] as const).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  stepIndex(step) >= i
-                    ? "bg-c16-yellow text-c16-black"
-                    : "bg-gray-100 text-c16-gray"
-                }`}
-              >
-                {i + 1}
+        {step === "location" && (
+          <>
+            <LocationSelector selectedId={location?.id ?? null} onSelect={selectLoc} />
+            {location && (
+              <div className="sticky-continue">
+                <div className="sc-inner">
+                  <div className="sc-label">
+                    <span className="eyebrow">Selected</span>
+                    <strong>{location.name}</strong>
+                    <span className="sc-addr">
+                      {location.address}, {location.city}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={continueFromLoc}
+                  >
+                    See available classes
+                    <svg viewBox="0 0 16 16" width="14" height="14">
+                      <path
+                        d="M2 8h11M9 4l4 4-4 4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <span
-                className={`font-semibold hidden sm:inline ${
-                  stepIndex(step) >= i ? "text-c16-black" : "text-c16-gray"
-                }`}
-              >
-                {s === "setup" ? "Details" : "Pick a class"}
-              </span>
-              {i < 1 && <div className="w-6 h-0.5 bg-gray-200 hidden sm:block" />}
-            </div>
-          ))}
-        </div>
-
-        {step === "setup" && (
-          <section className="max-w-3xl mx-auto">
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-2">
-              Book a Free Trial
-            </h1>
-            <p className="text-sm text-c16-gray-dark mb-8">
-              We&apos;ll show real Court 16 classes matched to your kid&apos;s age and your preferred club.
-            </p>
-
-            <div className="mb-8">
-              <h2 className="text-base font-bold mb-3">1. Which club?</h2>
-              <LocationSelector
-                selectedId={location?.id ?? null}
-                onSelect={(loc) => setLocation(loc)}
-              />
-            </div>
-
-            <div
-              className={`mb-8 transition-opacity ${
-                location ? "opacity-100" : "opacity-40 pointer-events-none"
-              }`}
-            >
-              <h2 className="text-base font-bold mb-1">2. Who&apos;s playing?</h2>
-              <p className="text-xs text-c16-gray-dark mb-3">
-                {location
-                  ? `We'll filter ${location.name} classes to match your kid's age.`
-                  : "Pick a club first."}
-              </p>
-              <AgeSelector value={kids} onChange={setKids} />
-            </div>
-
-            <button
-              onClick={() => setStep("calendar")}
-              disabled={!setupValid}
-              className={`
-                w-full sm:w-auto px-8 py-3 rounded-xl font-semibold text-sm transition-colors
-                ${
-                  setupValid
-                    ? "bg-c16-black text-white hover:bg-c16-dark"
-                    : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                }
-              `}
-            >
-              See available classes →
-            </button>
-          </section>
+            )}
+          </>
         )}
 
-        {step === "calendar" && (
-          <section>
-            <button
-              onClick={() => {
-                setStep("setup");
-                setSelectedClass(null);
-                setSelectedDate(null);
-              }}
-              className="text-sm text-c16-gray-dark hover:text-c16-black mb-4 inline-flex items-center gap-1"
-            >
-              ← Edit details
-            </button>
-
-            <div className="mb-4">
-              <h2 className="text-xl font-bold">Browse available classes</h2>
-              <p className="text-sm text-c16-gray-dark">
-                {ageSummary} · {location?.fullName}
-              </p>
+        {step === "calendar" && location && (
+          <section className="calendar-section">
+            <div className="cal-topline">
+              <button type="button" className="back-link" onClick={backToLoc}>
+                <svg viewBox="0 0 16 16" width="12" height="12">
+                  <path
+                    d="M10 3l-5 5 5 5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Change club
+              </button>
+              <div className="cal-context">
+                <span className="eyebrow">Step 2 of 2</span>
+                <h1 className="section-title">Available trial classes</h1>
+                <div className="loc-breadcrumb">
+                  <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true">
+                    <path
+                      d="M7 1c-2.5 0-4.5 2-4.5 4.5 0 3.5 4.5 7.5 4.5 7.5s4.5-4 4.5-7.5C11.5 3 9.5 1 7 1z"
+                      fill="#e53935"
+                      stroke="#1a1a1a"
+                      strokeWidth="1"
+                    />
+                    <circle cx="7" cy="5.5" r="1.4" fill="#fff" />
+                  </svg>
+                  <span>
+                    {location.state} — {location.name}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {loading && (
-              <div className="text-center py-12">
-                <div className="w-10 h-10 border-4 border-c16-yellow border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-c16-gray-dark">Loading classes...</p>
+              <div className="empty-state">
+                <div className="es-title">Loading classes…</div>
+                <div className="es-sub">Fetching live availability from MindBody.</div>
               </div>
             )}
 
-            {error && <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm">{error}</div>}
+            {error && (
+              <div className="empty-state" style={{ borderColor: "#c62828", color: "#c62828" }}>
+                <div className="es-title">Something went wrong</div>
+                <div className="es-sub">{error}</div>
+              </div>
+            )}
 
             {!loading && !error && (
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                <div className="lg:col-span-3">
+              <div className="cal-grid">
+                <div className="cal-col">
                   <CalendarView
                     classes={allClasses}
                     year={calYear}
@@ -293,70 +263,25 @@ export default function TrialPage() {
                     onPrevMonth={handlePrevMonth}
                     onNextMonth={handleNextMonth}
                   />
-                  {allClasses.length === 0 && (
-                    <div className="text-center py-8 mt-4 bg-gray-50 rounded-xl">
-                      <p className="text-sm font-bold mb-1">No classes this month</p>
-                      <p className="text-xs text-c16-gray-dark">
-                        Try navigating to next month, or choose a different club.
-                      </p>
-                    </div>
-                  )}
                 </div>
-
-                <div className="lg:col-span-2">
-                  <h3 className="font-bold text-sm mb-3 text-c16-gray-dark uppercase tracking-wide">
-                    Classes
-                  </h3>
-
-                  {!selectedDate && (
-                    <div className="flex flex-col items-center justify-center h-[360px] text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 px-6">
-                      <div className="text-4xl mb-3">📅</div>
-                      <p className="text-sm font-bold mb-1">Select a day on the calendar</p>
-                      <p className="text-xs text-c16-gray-dark">
-                        Click a day with classes to see available trial slots
-                      </p>
-                    </div>
-                  )}
-
-                  {selectedDate && dayClasses.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-[360px] text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 px-6">
-                      <p className="text-sm font-bold mb-1">No classes on this day</p>
-                      <p className="text-xs text-c16-gray-dark">Try selecting a different day</p>
-                    </div>
-                  )}
-
-                  {selectedDate && dayClasses.length > 0 && (
-                    <div>
-                      <p className="text-xs text-c16-gray-dark mb-3">
-                        {formatLongDate(selectedDate)} · {dayClasses.length}{" "}
-                        {dayClasses.length === 1 ? "class" : "classes"}
-                      </p>
-                      <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                        {dayClasses.map((tc) => (
-                          <ClassCard
-                            key={`${tc.classScheduleId}-${tc.date}`}
-                            trialClass={tc}
-                            isSelected={
-                              selectedClass?.classScheduleId === tc.classScheduleId &&
-                              selectedClass?.date === tc.date
-                            }
-                            onSelect={handleClassSelect}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <aside className="detail-col">
+                  <DayDetail
+                    classes={dayClasses}
+                    date={selectedDate}
+                    selectedClassId={selectedClass?.classScheduleId ?? null}
+                    onPick={handleClassSelect}
+                  />
+                </aside>
               </div>
             )}
           </section>
         )}
-      </main>
+      </div>
 
       {showFormModal && selectedClass && location && (
         <TrialRequestForm
           trialClass={selectedClass}
-          kids={kids}
+          kids={DEFAULT_KIDS}
           locationId={location.id}
           locationName={location.fullName}
           onSubmit={handleTrialSubmit}
@@ -366,11 +291,10 @@ export default function TrialPage() {
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 
-function stepIndex(step: Step): number {
-  const order: Step[] = ["setup", "calendar", "confirmed"];
-  return order.indexOf(step);
-}
+// Modal collects child age + name inline; we seed a single placeholder kid
+// entry with age=0 so the form's per-kid inputs render correctly.
+const DEFAULT_KIDS: ChildEntry[] = [{ label: "Kid 1", age: 0 }];
