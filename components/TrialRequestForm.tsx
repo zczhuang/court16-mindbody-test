@@ -27,8 +27,10 @@ export default function TrialRequestForm({
   onCancel,
 }: Props) {
   const [parentFirstName, setParentFirstName] = useState("");
+  const [parentLastName, setParentLastName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
   const [parentPhone, setParentPhone] = useState("");
+  const [parentBirthDate, setParentBirthDate] = useState("");
   const [childNames, setChildNames] = useState<string[]>(kids.map(() => ""));
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -69,8 +71,10 @@ export default function TrialRequestForm({
     try {
       await onSubmit({
         parentFirstName,
+        parentLastName,
         parentEmail,
         parentPhone,
+        parentBirthDate: parentBirthDate || undefined,
         childFirstName: childNames[0],
         childAge: kids[0].age,
         children,
@@ -136,39 +140,70 @@ export default function TrialRequestForm({
                 value={parentFirstName}
                 onChange={(e) => setParentFirstName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-                placeholder="Your name"
+                placeholder="Your first name"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-                Your email *
+                Your last name *
               </label>
               <input
-                type="email"
+                type="text"
                 required
-                value={parentEmail}
-                onChange={(e) => setParentEmail(e.target.value)}
+                maxLength={100}
+                value={parentLastName}
+                onChange={(e) => setParentLastName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-                placeholder="you@email.com"
+                placeholder="Your last name"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
-              Mobile phone *
+              Your email *
             </label>
             <input
-              type="tel"
+              type="email"
               required
-              value={parentPhone}
-              onChange={(e) => setParentPhone(e.target.value)}
+              value={parentEmail}
+              onChange={(e) => setParentEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
-              placeholder="(212) 555-0100"
+              placeholder="you@email.com"
             />
-            <p className="text-[11px] text-c16-gray-dark mt-1">
-              Staff calls to confirm your trial within a few hours.
-            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
+                Mobile phone *
+              </label>
+              <input
+                type="tel"
+                required
+                value={parentPhone}
+                onChange={(e) => setParentPhone(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
+                placeholder="(212) 555-0100"
+              />
+              <p className="text-[11px] text-c16-gray-dark mt-1">
+                Staff calls to confirm within a few hours.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-c16-gray-dark mb-1">
+                Your date of birth (optional)
+              </label>
+              <input
+                type="date"
+                value={parentBirthDate}
+                onChange={(e) => setParentBirthDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-c16-yellow"
+              />
+              <p className="text-[11px] text-c16-gray-dark mt-1">
+                Helps us keep your MindBody account clean.
+              </p>
+            </div>
           </div>
 
           {kids.map((kid, i) => (

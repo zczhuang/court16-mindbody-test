@@ -63,9 +63,15 @@ export interface ChildInfo {
 /** Trial request form submission */
 export interface TrialRequest {
   parentFirstName: string;
+  /** Required — needed for MindBody client record + downstream comms. */
+  parentLastName: string;
   parentEmail: string;
   /** Required — staff calls within hours to confirm the trial. */
   parentPhone: string;
+  /** Optional. Some MindBody sites require BirthDate on AddClient — when
+   * present we pass it through; when blank the route falls back to a
+   * placeholder year so the sandbox doesn't 400. ISO "YYYY-MM-DD". */
+  parentBirthDate?: string;
   childFirstName: string;
   childAge: number;
   children: ChildInfo[];

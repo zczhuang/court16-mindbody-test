@@ -146,10 +146,12 @@ export async function POST(req: Request) {
 
     const parent = await addClient(mbCfg, log, {
       FirstName: body.parentFirstName,
-      LastName: "-", // HubSpot collects last name, MindBody needs non-empty
+      LastName: body.parentLastName,
       Email: body.parentEmail,
       MobilePhone: body.parentPhone,
-      BirthDate: PARENT_DOB_PLACEHOLDER,
+      // Use the parent's actual DOB when provided; fall back to a
+      // placeholder only because the -99 sandbox 400s without BirthDate.
+      BirthDate: body.parentBirthDate || PARENT_DOB_PLACEHOLDER,
     });
     trace.push({ step: "addClient (parent)", status: "ok", data: { id: parent.Id } });
 
@@ -236,7 +238,7 @@ function buildFormFields(args: BuildFieldsArgs) {
 
   return {
     firstname: body.parentFirstName,
-    lastname: "-",
+    lastname: body.parentLastName,
     email: body.parentEmail,
     phone: body.parentPhone,
 
@@ -291,9 +293,12 @@ function validate(body: TrialRequest | undefined): string[] {
   if (!body) return ["Body is required"];
   const errors: string[] = [];
   if (!body.parentFirstName) errors.push("parentFirstName is required");
+  if (!body.parentLastName) errors.push("parentLastName is required");
   if (!/^\S+@\S+\.\S+$/.test(body.parentEmail ?? "")) errors.push("parentEmail is invalid");
   if (!body.parentPhone || body.parentPhone.replace(/\D/g, "").length < 7)
     errors.push("parentPhone is required");
+  if (body.parentBirthDate && !/^\d{4}-\d{2}-\d{2}$/.test(body.parentBirthDate))
+    errors.push('parentBirthDate must be "YYYY-MM-DD"');
   if (!body.childFirstName && (!body.children || body.children.length === 0))
     errors.push("childFirstName or children[] is required");
   if (!body.locationId) errors.push("locationId is required");
