@@ -1,115 +1,101 @@
-# HubSpot Workflows — Court 16 Booking
+# HubSpot Workflows — Court 16 Track 1
 
-Five workflows own every email the app sends. The app writes status
-transitions on the `court16_booking` custom object; workflows react.
+Two workflows own every email the app sends after a form submission. The
+app writes `court16_booking_status` transitions on the Contact; workflows
+react.
 
-**Requires:** HubSpot Marketing Hub Professional or higher for custom-object
-triggers. Verify with Ibtissam before relying on this design.
+The existing **form-submission nurture** that Ibtissam built in Phase 1
+stays attached to the form. The Forms API submission keeps firing it —
+nothing to change there.
 
 ---
 
-## 1. Staff trial notification
+## Workflow 1 — Staff trial notification
 
-**Trigger:** `court16_booking.status` is equal to `pending_staff` AND
-`court16_booking.intent` is equal to `kid_trial`.
+**Trigger:** `court16_booking_status` is equal to `pending_staff` AND
+`court16_intent` is equal to `kid_trial`.
 
 **Action:** Send internal email.
 
-**To:** `STAFF_NOTIFY_EMAIL` (single recipient for Track 1 — upgrade to
-per-location once `staff_notify_email_override` is wired in
-`lib/config.ts`).
+**To:** `STAFF_NOTIFY_EMAIL` (app env var — see `.env.example`). For
+Track 1 a single recipient is fine; per-location routing using
+`court16_location_slug` is a Track 2 improvement.
 
-**Subject:** `New trial request for {{court16_booking.correlation_id}}`
+**Subject:** `New trial request — {{contact.court16_correlation_id}}`
 
-**Body (template):**
+**Body (template, using contact-property merge tokens):**
 
 ```
 New trial request received.
 
-Correlation: {{court16_booking.correlation_id}}
-Location: {{court16_booking.location_id}}
-Class ID: {{court16_booking.class_id}}
+Correlation: {{contact.court16_correlation_id}}
+Location: {{contact.preferred_location}}
+Class ID: {{contact.court16_class_id}}
 
-Parent: {{associated_contact.firstname}} {{associated_contact.lastname}}
-Email: {{associated_contact.email}}
-Phone: {{associated_contact.phone}}
+Parent: {{contact.firstname}} {{contact.lastname}}
+Email: {{contact.email}}
+Phone: {{contact.phone}}
 
-Child: {{associated_contact.court16_child_name}}
-Age: {{associated_contact.court16_child_age}}
+Child: {{contact.child_name}} {{contact.child_1___last_name}}
+Age: {{contact.childage}}
+Experience: {{contact.child_1___playing_level}}
+School: {{contact.school}}
+DOB: {{contact.child_date_of_birth}}
+
+Lead source: {{contact.lead_source}}
 
 One-click actions:
-Confirm: {{court16_booking.staff_confirm_url}}
-Reassign: {{court16_booking.staff_reassign_url}}
+Confirm: {{contact.court16_staff_confirm_url}}
+Reassign: {{contact.court16_staff_reassign_url}}
 ```
 
-**Classification:** Internal / staff. Not marketing.
+**Classification:** Internal notification. Not marketing.
 
 ---
 
-## 2. Parent trial confirmation
+## Workflow 2 — Parent trial confirmation
 
-**Trigger:** `court16_booking.status` is equal to `confirmed` AND
-`court16_booking.intent` is equal to `kid_trial`.
+**Trigger:** `court16_booking_status` is equal to `confirmed` AND
+`court16_intent` is equal to `kid_trial`.
 
-**Action:** Send email to associated contact.
+**Action:** Send email to contact (the parent).
 
 **Subject:** `Your Court 16 trial is confirmed`
 
-**Body:** Class details merged from the booking record. Include
-"what to bring", location address, and a calendar ICS link.
+**Body:** Class details merged from the Contact record. Include
+"what to bring", location address, and (when we add it) a calendar ICS
+link.
 
-**Classification:** Transactional (requires Transactional Email add-on OR
-workflow email classified as transactional in Marketing Hub Pro+). Validate
-with Ibtissam.
-
----
-
-## 3. Adult intro confirmation
-
-**Trigger:** `court16_booking.status = confirmed` AND `intent = adult_intro`.
-
-Same pattern as #2, different subject / template.
+**Classification:** Transactional. Stuart has Marketing Email permissions,
+so workflow-email with transactional classification is available.
 
 ---
 
-## 4. Adult manual-review escalation
+## Optional — Workflow 3: manual review / failed alerts
 
-**Trigger:** `court16_booking.status = manual_review`.
+Consolidate into one workflow:
 
-**Action:** Internal email to `STAFF_NOTIFY_EMAIL` with booking details and
-the `admin_retry_url` for one-click re-run after manual MindBody cleanup.
+**Trigger:** `court16_booking_status` changes to `manual_review` OR
+`failed`.
 
----
+**Action:** Internal email to `STAFF_NOTIFY_EMAIL` with
+`court16_failure_reason` + `court16_admin_retry_url`.
 
-## 5. Booking failed alert
-
-**Trigger:** `court16_booking.status = failed`.
-
-**Action:**
-- Primary: Internal email to `STAFF_NOTIFY_EMAIL` with failure reason +
-  admin retry URL.
-- Optional: HubSpot webhook action to `SLACK_ALERT_WEBHOOK` if configured.
-  Keep payload minimal to respect Slack rate limits.
+Skip Slack webhook for Track 1; add in Track 3 when volume justifies it.
 
 ---
 
 ## Testing a workflow
 
-1. In HubSpot, open the workflow and put it in "History" test mode.
-2. Hit the app's `/api/book/trial` with a test payload (sandbox env).
-3. Verify the workflow enrolled the booking record.
-4. Verify the outbound email was queued (Workflow history shows the send).
-5. Compare against the same workflow in production sandbox.
+1. Set `HUBSPOT_ENV=sandbox` + use the sandbox portal's access token + form GUID.
+2. Open the workflow in HubSpot, put it in History test mode.
+3. Hit the app's `/api/book/trial` with a test payload.
+4. Verify the workflow enrolled the Contact (by matching email).
+5. Verify the outbound email was queued (Workflow history shows the send).
+6. Mirror the workflow to production.
 
----
+## Disaster recovery
 
-## Rebuild procedure (disaster recovery)
-
-If a workflow is accidentally deleted:
-
-1. Recreate with the trigger and action defined above.
-2. Paste the template body from version control (this file).
-3. Run the testing procedure.
-
-Workflows in HubSpot are not version-controlled by HubSpot. This document
-IS the version control. Update here whenever you update a workflow.
+If a workflow is accidentally deleted, rebuild from this doc. Trigger,
+action, subject, and body are all documented here. Workflows are not
+version-controlled by HubSpot — this doc is the canonical copy.

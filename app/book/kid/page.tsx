@@ -1,21 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-interface ClassOption {
-  Id?: number;
-  ClassId?: number;
-  StartDateTime?: string;
-  EndDateTime?: string;
-  ClassDescription?: { Name?: string };
-  Staff?: { Name?: string };
-}
 interface TrialResult {
   ok: boolean;
   correlationId: string;
   status?: string;
-  hubspotContactId?: string | null;
-  hubspotBookingId?: string | null;
   parentId?: string | number | null;
   childId?: string | number | null;
   trace?: Array<{ step: string; status: string }>;
@@ -23,51 +13,72 @@ interface TrialResult {
   errors?: string[];
 }
 
+// Must match lib/config.ts (and, in turn, the HubSpot form options).
 const LOCATIONS = [
-  { slug: "nyc-union-sq", name: "NYC — Union Square" },
-  { slug: "nyc-brooklyn", name: "NYC — Brooklyn" },
-  { slug: "nyc-long-island-city", name: "NYC — Long Island City" },
-  { slug: "nyc-upper-west-side", name: "NYC — Upper West Side" },
-  { slug: "nyc-chelsea", name: "NYC — Chelsea" },
-  { slug: "nyc-harlem", name: "NYC — Harlem" },
+  { slug: "long-island-city", label: "Long Island City, Queens" },
+  { slug: "downtown-brooklyn", label: "Downtown Brooklyn" },
+  { slug: "manhattan-fidi", label: "FiDi — Manhattan" },
+  { slug: "fishtown-philly", label: "Fishtown — Philadelphia" },
+  { slug: "ridge-hill-yonkers", label: "Ridge Hill — Yonkers" },
+  { slug: "newton-ma", label: "Newton — Massachusetts" },
 ];
 
+const AGE_BANDS = [
+  { value: "2.5 - 3 yo", label: "2.5 – 3" },
+  { value: "3 - 4 yo", label: "4" },
+  { value: "5 - 6 yo", label: "5 – 6" },
+  { value: "7 - 8 yo", label: "7 – 8" },
+  { value: "9 - 11 yo", label: "9 – 11" },
+  { value: "12 yo or older", label: "12 – 15" },
+  { value: "15 and older", label: "15 and older" },
+];
+
+const PLAYING_LEVELS = [
+  { value: "New to Tennis", label: "New to tennis" },
+  { value: "Played a bit here and there", label: "Played a bit here and there" },
+  { value: "Has taken formal lessons", label: "Has taken formal lessons" },
+];
+
+const LEAD_SOURCES = [
+  "Word of Mouth",
+  "Flyer",
+  "Friend with a Court 16 member",
+  "Google",
+  "Facebook",
+  "Instagram",
+  "Other",
+  "Events",
+];
+
+type Step = "location" | "parent" | "child" | "extras" | "waiver" | "submitting" | "done";
+
 export default function KidBooking() {
-  const [step, setStep] = useState<"location" | "parent" | "child" | "class" | "waiver" | "submitting" | "done">("location");
+  const [step, setStep] = useState<Step>("location");
   const [location, setLocation] = useState("");
   const [parent, setParent] = useState({ firstName: "", lastName: "", email: "", mobilePhone: "", birthDate: "" });
-  const [child, setChild] = useState({ firstName: "", lastName: "", age: "", comfortLevel: "beginner", birthDate: "" });
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [classId, setClassId] = useState<number | null>(null);
+  const [child, setChild] = useState({
+    firstName: "",
+    lastName: "",
+    ageBand: "",
+    birthDate: "",
+    playingLevel: "",
+    school: "",
+  });
+  const [leadSource, setLeadSource] = useState("");
+  const [referrerEmail, setReferrerEmail] = useState("");
+  const [notes, setNotes] = useState("");
   const [waiver, setWaiver] = useState(false);
   const [result, setResult] = useState<TrialResult | null>(null);
-  const [loadingClasses, setLoadingClasses] = useState(false);
-
-  useEffect(() => {
-    if (step !== "class" || !location) return;
-    setLoadingClasses(true);
-    const age = Number(child.age) || undefined;
-    const params = new URLSearchParams({ location });
-    if (age) {
-      params.set("ageMin", String(Math.max(3, age - 1)));
-      params.set("ageMax", String(Math.min(18, age + 1)));
-    }
-    params.set("programType", "trial");
-    params.set("limit", "20");
-    fetch(`/api/calendar?${params.toString()}`)
-      .then((r) => r.json())
-      .then((j) => setClasses(j.classes ?? []))
-      .catch(() => setClasses([]))
-      .finally(() => setLoadingClasses(false));
-  }, [step, location, child.age]);
 
   async function submit() {
     setStep("submitting");
     const body = {
       location,
       parent,
-      child: { ...child, age: Number(child.age) },
-      classId: classId!,
+      child,
+      leadSource,
+      referrerEmail: referrerEmail || undefined,
+      notes: notes || undefined,
       waiverVersion: "v1.0",
     };
     try {
@@ -96,7 +107,7 @@ export default function KidBooking() {
           <div style={{ display: "grid", gap: 8 }}>
             {LOCATIONS.map((l) => (
               <button key={l.slug} onClick={() => { setLocation(l.slug); setStep("parent"); }} style={choiceBtn}>
-                {l.name}
+                {l.label}
               </button>
             ))}
           </div>
@@ -114,7 +125,13 @@ export default function KidBooking() {
             <Field label="Mobile phone"><input value={parent.mobilePhone} onChange={(e) => setParent({ ...parent, mobilePhone: e.target.value })} style={input} /></Field>
           </Row>
           <Field label="Parent DOB (YYYY-MM-DD)"><input required placeholder="1985-01-01" value={parent.birthDate} onChange={(e) => setParent({ ...parent, birthDate: e.target.value })} style={input} /></Field>
-          <button onClick={() => setStep("child")} style={nextBtn}>Next</button>
+          <button
+            onClick={() => setStep("child")}
+            disabled={!parent.firstName || !parent.lastName || !parent.email || !parent.birthDate}
+            style={parent.firstName && parent.lastName && parent.email && parent.birthDate ? nextBtn : disabledBtn}
+          >
+            Next
+          </button>
         </section>
       )}
 
@@ -125,40 +142,54 @@ export default function KidBooking() {
             <Field label="Child last name"><input required value={child.lastName} onChange={(e) => setChild({ ...child, lastName: e.target.value })} style={input} /></Field>
           </Row>
           <Row>
-            <Field label="Age"><input required type="number" min={3} max={18} value={child.age} onChange={(e) => setChild({ ...child, age: e.target.value })} style={input} /></Field>
-            <Field label="Child DOB (YYYY-MM-DD)"><input required placeholder="2017-06-15" value={child.birthDate} onChange={(e) => setChild({ ...child, birthDate: e.target.value })} style={input} /></Field>
+            <Field label="Child age">
+              <select required value={child.ageBand} onChange={(e) => setChild({ ...child, ageBand: e.target.value })} style={input}>
+                <option value="" disabled>Please select</option>
+                {AGE_BANDS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Child DOB (YYYY-MM-DD)"><input required placeholder="2018-06-15" value={child.birthDate} onChange={(e) => setChild({ ...child, birthDate: e.target.value })} style={input} /></Field>
           </Row>
-          <Field label="Comfort level">
-            <select value={child.comfortLevel} onChange={(e) => setChild({ ...child, comfortLevel: e.target.value })} style={input}>
-              <option value="beginner">Beginner — never played</option>
-              <option value="some-experience">Some experience</option>
-              <option value="experienced">Experienced</option>
+          <Field label="Previous playing experience">
+            <select required value={child.playingLevel} onChange={(e) => setChild({ ...child, playingLevel: e.target.value })} style={input}>
+              <option value="" disabled>Please select</option>
+              {PLAYING_LEVELS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </Field>
-          <button onClick={() => setStep("class")} style={nextBtn}>Next — pick a class</button>
+          <Field label="School"><input required value={child.school} onChange={(e) => setChild({ ...child, school: e.target.value })} style={input} /></Field>
+          <button
+            onClick={() => setStep("extras")}
+            disabled={!child.firstName || !child.lastName || !child.ageBand || !child.birthDate || !child.playingLevel || !child.school}
+            style={
+              child.firstName && child.lastName && child.ageBand && child.birthDate && child.playingLevel && child.school
+                ? nextBtn
+                : disabledBtn
+            }
+          >
+            Next
+          </button>
         </section>
       )}
 
-      {step === "class" && (
+      {step === "extras" && (
         <section style={section}>
-          <Label>Pick a trial class (next 14 days)</Label>
-          {loadingClasses && <div style={{ color: "#888" }}>Loading…</div>}
-          {!loadingClasses && classes.length === 0 && (
-            <div style={{ color: "#888" }}>
-              No sessions found. Try a different location or email <a href="mailto:info@court16.com">info@court16.com</a>.
-            </div>
+          <Field label="How did you hear about us?">
+            <select required value={leadSource} onChange={(e) => setLeadSource(e.target.value)} style={input}>
+              <option value="" disabled>Please select</option>
+              {LEAD_SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          {leadSource === "Friend with a Court 16 member" && (
+            <Field label="Friend's email (so we can thank them)">
+              <input type="email" value={referrerEmail} onChange={(e) => setReferrerEmail(e.target.value)} style={input} />
+            </Field>
           )}
-          {classes.map((c) => {
-            const id = c.Id ?? c.ClassId;
-            const when = c.StartDateTime ? new Date(c.StartDateTime).toLocaleString() : "TBD";
-            const name = c.ClassDescription?.Name ?? "Class";
-            return (
-              <button key={id} onClick={() => { setClassId(Number(id)); setStep("waiver"); }} style={classBtn}>
-                <div style={{ fontWeight: 600 }}>{name}</div>
-                <div style={{ fontSize: 12, color: "#666" }}>{when} · {c.Staff?.Name ?? "Court 16 coach"}</div>
-              </button>
-            );
-          })}
+          <Field label="Anything else we should know? (optional)">
+            <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} style={{ ...input, fontFamily: "inherit" }} />
+          </Field>
+          <button onClick={() => setStep("waiver")} disabled={!leadSource} style={leadSource ? nextBtn : disabledBtn}>
+            Next
+          </button>
         </section>
       )}
 
@@ -176,11 +207,7 @@ export default function KidBooking() {
         </section>
       )}
 
-      {step === "submitting" && (
-        <section style={section}>
-          <div style={{ color: "#888" }}>Submitting…</div>
-        </section>
-      )}
+      {step === "submitting" && <section style={section}><div style={{ color: "#888" }}>Submitting…</div></section>}
 
       {step === "done" && result && (
         <section style={section}>
@@ -196,9 +223,7 @@ export default function KidBooking() {
             ) : (
               <div>
                 <h2 style={{ fontSize: 20 }}>We&apos;re confirming your trial</h2>
-                <p style={{ color: "#555" }}>
-                  You&apos;ll hear from Court 16 within a few hours with your confirmed class details.
-                </p>
+                <p style={{ color: "#555" }}>You&apos;ll hear from Court 16 within a few hours with your confirmed class details.</p>
                 <p style={{ fontSize: 12, color: "#888" }}>Reference: {result.correlationId}</p>
               </div>
             )
@@ -251,7 +276,6 @@ const choiceBtn: React.CSSProperties = {
   textAlign: "left",
   cursor: "pointer",
 };
-const classBtn: React.CSSProperties = { ...choiceBtn };
 const nextBtn: React.CSSProperties = {
   padding: "12px 20px",
   fontSize: 14,

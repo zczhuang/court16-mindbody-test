@@ -5,10 +5,10 @@ import {
   MindbodyError,
 } from "@/lib/mindbody";
 import {
-  getBookingByCorrelationId,
+  findContactByCorrelationId,
   HubspotError,
   loadHubspotConfig,
-  updateBookingStatus,
+  updateContact,
 } from "@/lib/hubspot";
 import { InvalidTokenError, verifyToken } from "@/lib/staff-tokens";
 import { createLogger } from "@/lib/logger";
@@ -20,11 +20,11 @@ export const dynamic = "force-dynamic";
 /**
  * GET or POST /api/staff/confirm?token=<signed-jwt>
  *
- * Staff clicks the confirm link from the email. We verify the HMAC, look
- * up the booking from HubSpot, reject if already confirmed (single-use via
- * status, not a separate token table), call MindBody AddClientToClass,
- * then flip status → confirmed which triggers the parent-confirmation
- * workflow in HubSpot.
+ * Staff clicks the confirm link from the email. We verify the HMAC, find
+ * the Contact by `court16_correlation_id` in HubSpot, reject if already
+ * confirmed (single-use via status, not a separate token table), call
+ * MindBody AddClientToClass, then flip `court16_booking_status=confirmed`
+ * which triggers the parent-confirmation workflow in HubSpot.
  */
 export async function GET(req: Request) {
   return handle(req);
@@ -36,9 +36,7 @@ export async function POST(req: Request) {
 async function handle(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
-  if (!token) {
-    return html("Missing token", 400);
-  }
+  if (!token) return html("Missing token", 400);
 
   let payload: ReturnType<typeof verifyToken>;
   try {
@@ -55,7 +53,7 @@ async function handle(req: Request) {
   const hsCfg = loadHubspotConfig();
   if (!hsCfg) {
     return html(
-      "HubSpot is not configured on this deployment. Staff confirm cannot run without HUBSPOT_ACCESS_TOKEN + HUBSPOT_CUSTOM_OBJECT_TYPE_ID.",
+      "HubSpot is not configured on this deployment. Staff confirm cannot run without HUBSPOT_ACCESS_TOKEN / HUBSPOT_PORTAL_ID / HUBSPOT_TRIAL_FORM_GUID.",
       503,
     );
   }
@@ -67,57 +65,58 @@ async function handle(req: Request) {
     return html(`Config error: ${e instanceof Error ? e.message : String(e)}`, 500);
   }
 
-  let booking: Awaited<ReturnType<typeof getBookingByCorrelationId>>;
+  let contact: Awaited<ReturnType<typeof findContactByCorrelationId>>;
   try {
-    booking = await getBookingByCorrelationId(hsCfg, log, payload.correlationId);
+    contact = await findContactByCorrelationId(hsCfg, log, payload.correlationId);
   } catch (e) {
     const msg = e instanceof HubspotError ? `HubSpot error (${e.status})` : "HubSpot lookup failed";
     return html(msg, 502);
   }
-  if (!booking) {
+  if (!contact) {
     return html(`Booking not found for correlation ${payload.correlationId}`, 404);
   }
 
-  if (booking.properties.status === "confirmed") {
+  if (contact.properties.court16_booking_status === "confirmed") {
     return html("This booking is already confirmed. Thank you.", 410);
   }
 
-  // Per-location MindBody site
-  const location = booking.properties.location_id
-    ? getLocation(booking.properties.location_id)
-    : undefined;
-  if (location) {
-    mbCfg = { ...mbCfg, siteId: location.mindbodySiteId };
+  // Per-location MindBody Site ID override
+  const locationSlug = contact.properties.court16_location_slug;
+  if (locationSlug) {
+    const location = getLocation(locationSlug);
+    if (location) mbCfg = { ...mbCfg, siteId: location.mindbodySiteId };
   }
 
-  const classId = booking.properties.class_id ? Number(booking.properties.class_id) : undefined;
-  const childId = booking.properties.mindbody_child_id || booking.properties.mindbody_adult_id;
+  const classId = contact.properties.court16_class_id
+    ? Number(contact.properties.court16_class_id)
+    : undefined;
+  const clientId =
+    contact.properties.court16_mindbody_child_id || contact.properties.court16_mindbody_parent_id;
 
-  if (!classId || !childId) {
-    await updateBookingStatus(hsCfg, log, booking.id, {
-      status: "failed",
-      failure_reason: "Missing class_id or client id on booking record",
+  if (!classId || !clientId) {
+    await updateContact(hsCfg, log, contact.id, {
+      court16_booking_status: "failed",
+      court16_failure_reason: "Missing court16_class_id or MindBody client ID on contact",
     });
     return html("Booking record is missing class or client — flagged as failed.", 422);
   }
 
   try {
     await addClientToClass(mbCfg, log, {
-      ClientId: childId,
+      ClientId: clientId,
       ClassId: classId,
     });
   } catch (e) {
     const serialized =
       e instanceof MindbodyError ? JSON.stringify(e.toJSON()) : e instanceof Error ? e.message : String(e);
-    await updateBookingStatus(hsCfg, log, booking.id, {
-      status: "failed",
-      failure_reason: `AddClientToClass: ${serialized}`,
-      last_mindbody_response: serialized.slice(0, 4000),
+    await updateContact(hsCfg, log, contact.id, {
+      court16_booking_status: "failed",
+      court16_failure_reason: `AddClientToClass: ${serialized}`.slice(0, 4000),
     });
     return html(`MindBody booking failed. Staff: check admin queue.`, 502);
   }
 
-  await updateBookingStatus(hsCfg, log, booking.id, { status: "confirmed" });
+  await updateContact(hsCfg, log, contact.id, { court16_booking_status: "confirmed" });
   return html(
     `Confirmed. Parent will receive a confirmation email shortly. (correlation: ${payload.correlationId})`,
     200,

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import {
-  getBookingByCorrelationId,
+  findContactByCorrelationId,
   HubspotError,
   loadHubspotConfig,
-  updateBookingStatus,
+  updateContact,
 } from "@/lib/hubspot";
 import { InvalidTokenError, verifyToken } from "@/lib/staff-tokens";
 import { createLogger } from "@/lib/logger";
@@ -14,9 +14,9 @@ export const dynamic = "force-dynamic";
 /**
  * GET or POST /api/staff/reassign?token=<signed-jwt>
  *
- * Flips the booking to `manual_review`. No MindBody write. Staff reassigns
- * the class by hand in MindBody, then can optionally click admin retry
- * with the new class ID patched in.
+ * Flips the contact to `court16_booking_status=manual_review`. No MindBody
+ * write. Staff reassigns the class by hand in MindBody, then optionally
+ * clicks the admin retry URL with a new class_id patched in.
  */
 export async function GET(req: Request) {
   return handle(req);
@@ -45,21 +45,21 @@ async function handle(req: Request) {
   const hsCfg = loadHubspotConfig();
   if (!hsCfg) return html("HubSpot is not configured on this deployment.", 503);
 
-  let booking: Awaited<ReturnType<typeof getBookingByCorrelationId>>;
+  let contact: Awaited<ReturnType<typeof findContactByCorrelationId>>;
   try {
-    booking = await getBookingByCorrelationId(hsCfg, log, payload.correlationId);
+    contact = await findContactByCorrelationId(hsCfg, log, payload.correlationId);
   } catch (e) {
     const msg = e instanceof HubspotError ? `HubSpot error (${e.status})` : "HubSpot lookup failed";
     return html(msg, 502);
   }
-  if (!booking) return html(`Booking not found for correlation ${payload.correlationId}`, 404);
-  if (booking.properties.status === "confirmed") {
+  if (!contact) return html(`Booking not found for correlation ${payload.correlationId}`, 404);
+  if (contact.properties.court16_booking_status === "confirmed") {
     return html("This booking is already confirmed and cannot be reassigned here.", 410);
   }
 
-  await updateBookingStatus(hsCfg, log, booking.id, {
-    status: "manual_review",
-    failure_reason: "Staff reassigned — manually place in MindBody then hit admin retry.",
+  await updateContact(hsCfg, log, contact.id, {
+    court16_booking_status: "manual_review",
+    court16_failure_reason: "Staff reassigned — manually place in MindBody then hit admin retry.",
   });
   return html(
     `Flagged for manual review. Reassign the class in MindBody, then visit the admin retry URL. (correlation: ${payload.correlationId})`,
