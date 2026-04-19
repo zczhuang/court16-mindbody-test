@@ -20,29 +20,13 @@ export default function Header() {
         <nav className="c16-nav">
           <Link className="pill yellow" href="/">Book now</Link>
           <a
-            href="https://court-16-online-enrollment.onrender.com/enroll"
-            className="link"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Enroll
-          </a>
-          <span className="divider" />
-          <a
-            href="https://www.court16.com/adults"
-            className="link"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Adults
-          </a>
-          <a
             href="https://clients.mindbodyonline.com/ASP/main_class.asp"
             className="link"
             target="_blank"
             rel="noopener noreferrer"
+            title="Existing MindBody account"
           >
-            My Account
+            Sign in
           </a>
         </nav>
       </div>
