@@ -385,6 +385,37 @@ export async function getClientServices(
   return res.ClientServices ?? [];
 }
 
+/**
+ * Build a MindBody cart URL for an adult intro-offer checkout.
+ *
+ * IMPORTANT (spike result, 2026-04-18): the classic cart at
+ * `clients.mindbodyonline.com/classic/ws` responds with
+ * `X-Frame-Options: SAMEORIGIN` and cannot be iframe-embedded. Tier C's
+ * embedded-widget plan needs a MindBody-side choice (Anthony sets up a
+ * Healcode / Branded Web Tools widget per location) OR a custom
+ * Stripe-to-MindBody integration on our side. Until one of those lands,
+ * this helper returns a REDIRECT URL — the UI opens it in a new window or
+ * redirects the parent directly instead of iframing it.
+ *
+ * URL format is the classic MindBody embed-shopping-cart deep link:
+ * https://clients.mindbodyonline.com/classic/ws?studioid={siteId}&stype=-8&sTG=50&sTrn={serviceId}
+ * The return URL is handled via MindBody's "Return URL" site setting
+ * (configured per site by the owner) — not a URL param.
+ */
+export function buildAdultCartUrl(opts: {
+  siteId: string | number;
+  serviceId: number;
+  clientId?: string | number;
+}): string {
+  const params = new URLSearchParams();
+  params.set("studioid", String(opts.siteId));
+  params.set("stype", "-8"); // MindBody's internal code for "buy service"
+  params.set("sTG", "50"); // "add to cart"
+  params.set("sTrn", String(opts.serviceId));
+  if (opts.clientId) params.set("clientId", String(opts.clientId));
+  return `https://clients.mindbodyonline.com/classic/ws?${params.toString()}`;
+}
+
 /** In-process age-band filter for class lists. MindBody has no server-side age filter. */
 export function filterClassesByAgeBand(
   classes: ClassDescription[],

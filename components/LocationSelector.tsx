@@ -5,19 +5,23 @@ import { LOCATIONS, type Location } from "@/config/locations";
 interface Props {
   selectedId: string | null;
   onSelect: (location: Location) => void;
+  /** Hide the built-in eyebrow + title + subtitle (used when a parent page provides its own). */
+  suppressHead?: boolean;
 }
 
-export default function LocationSelector({ selectedId, onSelect }: Props) {
+export default function LocationSelector({ selectedId, onSelect, suppressHead }: Props) {
   return (
     <section className="loc-section">
-      <div className="section-head">
-        <div className="eyebrow">Step 1 of 2</div>
-        <h1 className="section-title">Choose your club</h1>
-        <p className="section-sub">
-          Six clubs across NY, PA &amp; MA. Pick the one nearest you — we&apos;ll show only the
-          classes at that location.
-        </p>
-      </div>
+      {!suppressHead && (
+        <div className="section-head">
+          <div className="eyebrow">Step 1 of 2</div>
+          <h1 className="section-title">Choose your club</h1>
+          <p className="section-sub">
+            Six clubs across NY, PA &amp; MA. Pick the one nearest you — we&apos;ll show only the
+            classes at that location.
+          </p>
+        </div>
+      )}
 
       <div className="loc-grid">
         {LOCATIONS.map((loc) => {

@@ -77,6 +77,28 @@ export function filterChildrenOnly(classes: MindBodyClass[]): MindBodyClass[] {
   return classes.filter((c) => !c.IsCanceled);
 }
 
+/**
+ * Filter to adult classes only — mirrors filterChildrenOnly. Real Court 16
+ * data will expose adult programs via ClassDescription.Program.Name (e.g.
+ * "Adult Tennis", "Pickleball"). In sandbox / early-dev data the program
+ * names are arbitrary, so we fall back to "not a children's program" which
+ * catches anything that isn't clearly a kids class.
+ */
+export function filterAdultOnly(classes: MindBodyClass[]): MindBodyClass[] {
+  return classes.filter((c) => {
+    if (c.IsCanceled) return false;
+    const name = c.ClassDescription?.Program?.Name;
+    const className = c.ClassDescription?.Name || "";
+    // Explicit adult match
+    if (name && /adult|pickleball|intro/i.test(name)) return true;
+    // Explicit children match -> exclude
+    if (name && /children|kids|freshman|sophomore|junior|little/i.test(name)) return false;
+    if (/little freshman|freshman|sophomore|junior|teenager/i.test(className)) return false;
+    // Unknown program — include (dev safety net, same as children helper)
+    return true;
+  });
+}
+
 export function filterAvailable(classes: TrialClass[]): TrialClass[] {
   return classes.filter((c) => c.spotsAvailable > 0);
 }

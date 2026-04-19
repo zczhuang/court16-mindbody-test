@@ -78,8 +78,21 @@ if [ "$MODE_SKIP_ENV" -eq 0 ]; then
   OPTIONAL_KEYS=(
     MINDBODY_BASE_URL
     MINDBODY_WRITE_MODE
+    MINDBODY_USE_SANDBOX_FALLBACK
     TEST_API_TOKEN
     HAPPY_PATH_DEFAULT_EMAIL
+    STAFF_CONFIRM_SIGNING_SECRET
+    # APP_BASE_URL intentionally NOT synced — local is localhost, prod is
+    # the Vercel deploy URL; set it once via `vercel env add` in prod and
+    # leave it alone here so deploy.sh doesn't overwrite it.
+    STAFF_NOTIFY_EMAIL
+    SLACK_ALERT_WEBHOOK
+    HUBSPOT_ACCESS_TOKEN
+    HUBSPOT_PORTAL_ID
+    HUBSPOT_TRIAL_FORM_GUID
+    HUBSPOT_ENV
+    HUBSPOT_REQUIRED
+    HUBSPOT_CUSTOM_OBJECT_TYPE_ID
   )
 
   # Source .env.local to get values into shell. `set -a` auto-exports.
