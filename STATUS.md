@@ -136,7 +136,14 @@ MindBody login page using these IDs.
    - Parent confirmation — fires when staff confirms, sends the "you're in!" email
 3. **Add a filter to the existing kids-trial nurture workflow** so it doesn't
    fire for adult submissions (a one-line `intent != kid_trial` rule).
-4. **Optionally: create a Private App API token.** This is what lets the staff
+4. **Turn off reCAPTCHA on the Court 16 Trial form.** Marketing → Forms →
+   Court 16 Trial (`3e966ac4-872e-49ec-9b93-1f114fa6d39b`) → Settings →
+   uncheck "Protect this form from spam with Google reCAPTCHA". Right now
+   the API gets a 400 `FORM_HAS_RECAPTCHA_ENABLED` back, so leads captured
+   during any MindBody outage (status = `manual_review`) never reach the
+   contact database. Ten-second fix, unblocks graceful-degradation lead
+   capture with zero further code changes.
+5. **Optionally: create a Private App API token.** This is what lets the staff
    one-click-confirm emails actually work. Without it, staff will still get
    notified but they'll confirm the class manually in MindBody admin (same as
    today, just with cleaner signup data on their end).

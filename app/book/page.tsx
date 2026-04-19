@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import PathCard from "@/components/PathCard";
+import LocationSelector from "@/components/LocationSelector";
 import { useSelectedLocation } from "@/lib/location-state";
 import { getLocationById } from "@/config/locations";
 
@@ -29,15 +30,42 @@ function BookInner() {
     }
   }, [urlLocation, location, setLocation]);
 
-  // If no location is set AND no URL param, bounce to / where the nav
-  // dropdown prompts. Shouldn't hit this since the nav Book now handles
-  // the guard, but belt-and-suspenders.
-  useEffect(() => {
-    if (!urlLocation && !location) router.replace("/");
-  }, [urlLocation, location, router]);
-
   const resolved = location ?? (urlLocation ? getLocationById(urlLocation) : null);
   const qs = resolved ? `?location=${resolved.id}` : "";
+
+  // No location yet — render the picker inline instead of silently
+  // bouncing to `/`. Previous `router.replace("/")` created a dead-end
+  // loop when users clicked a CTA before picking a location.
+  if (!resolved) {
+    return (
+      <>
+        <Header />
+        <div className="c16-container">
+          <section style={{ padding: "56px 0 20px", textAlign: "center" }}>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>
+              Court 16
+            </div>
+            <h1 className="section-title">
+              Pick a <em>club</em>
+            </h1>
+            <p className="section-sub">
+              Six clubs across NY, PA &amp; MA. We&apos;ll show only the classes at your pick.
+            </p>
+          </section>
+          <section style={{ padding: "0 0 80px" }}>
+            <LocationSelector
+              selectedId={null}
+              onSelect={(loc) => {
+                setLocation(loc);
+                router.replace(`/book?location=${loc.id}`);
+              }}
+              suppressHead
+            />
+          </section>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

@@ -27,12 +27,16 @@ export default function Home() {
               gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             }}
           >
+            {/* Route directly to /trial and /intro — both pages handle the
+                no-location case with their own LocationSelector step. Routing
+                through /book here caused a silent bounce-back when no location
+                was preassigned in global state or URL. */}
             <PathCard
               eyebrow="For your child"
               title="Kids free trial"
               description="Ages 3–17. Browse real classes, pick a time, and staff confirms within a few hours."
               cta="Start kids trial"
-              href="/book"
+              href="/trial"
               accentColor="#FFE033"
             />
             <PathCard
@@ -40,7 +44,7 @@ export default function Home() {
               title="Adult intro"
               description="Tennis Intro Special ($75) or Pickleball Clinic Intro ($58). Book a session and pay online in a few clicks."
               cta="Start adult intro"
-              href="/book"
+              href="/intro"
               accentColor="#1a1a1a"
             />
           </div>
