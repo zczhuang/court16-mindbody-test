@@ -27,6 +27,21 @@ export function getLoginUrlFor(loc: Location): string {
   return loc.loginUrl ?? DEFAULT_LOGIN_URL;
 }
 
+/**
+ * Per-location login URLs — mirror what court16.com/login uses today.
+ * Court 16 sends members to MindBody's classic sign-up/sign-in page
+ * keyed by the site's studioid. Pattern:
+ *   https://clients.mindbodyonline.com/ASP/su1.asp?studioid={siteId}
+ *
+ * Source: scraped from https://www.court16.com/login on 2026-04-18.
+ * Each location card on that page links to the MindBody destination
+ * below; we replicate the pattern instead of hard-coding JWT-tokenized
+ * deep links (those expire).
+ */
+function mindbodyLoginUrl(siteId: number): string {
+  return `https://clients.mindbodyonline.com/ASP/su1.asp?studioid=${siteId}`;
+}
+
 export const LOCATIONS: Location[] = [
   {
     id: "brooklyn",
@@ -36,6 +51,7 @@ export const LOCATIONS: Location[] = [
     address: "526 Atlantic Ave",
     city: "Brooklyn",
     state: "NY",
+    loginUrl: mindbodyLoginUrl(5748147),
   },
   {
     id: "lic",
@@ -45,6 +61,7 @@ export const LOCATIONS: Location[] = [
     address: "4-33 Vernon Blvd",
     city: "Long Island City",
     state: "NY",
+    loginUrl: mindbodyLoginUrl(5748148),
   },
   {
     id: "fidi",
@@ -54,6 +71,7 @@ export const LOCATIONS: Location[] = [
     address: "30 Broad St",
     city: "New York",
     state: "NY",
+    loginUrl: mindbodyLoginUrl(5748149),
   },
   {
     id: "ridgehill",
@@ -63,6 +81,7 @@ export const LOCATIONS: Location[] = [
     address: "32 Market Street",
     city: "Yonkers",
     state: "NY",
+    loginUrl: mindbodyLoginUrl(5748154),
   },
   {
     id: "fishtown",
@@ -72,6 +91,7 @@ export const LOCATIONS: Location[] = [
     address: "1241 N Front St",
     city: "Philadelphia",
     state: "PA",
+    loginUrl: mindbodyLoginUrl(5751421),
   },
   {
     id: "newton",
@@ -81,6 +101,7 @@ export const LOCATIONS: Location[] = [
     address: "300 Needham St",
     city: "Newton",
     state: "MA",
+    loginUrl: mindbodyLoginUrl(5751422),
   },
 ];
 
