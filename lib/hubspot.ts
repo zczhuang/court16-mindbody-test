@@ -19,7 +19,14 @@
 import type { Logger } from "./logger";
 
 export interface HubspotConfig {
-  accessToken: string;
+  /**
+   * Private App token. Optional — Forms v3 integration submit is
+   * unauthenticated, so form-submit-only deployments (Portal ID + Form
+   * GUID) work fine without a token. CRM reads/writes (findContact*,
+   * updateContact) do require the token and will throw if called
+   * without one — see `requireAccessToken()`.
+   */
+  accessToken?: string;
   portalId: string;
   trialFormGuid: string;
   /** CRM / schemas host. Default https://api.hubapi.com */
@@ -28,25 +35,43 @@ export interface HubspotConfig {
   formsBaseUrl: string;
 }
 
+/**
+ * Load HubSpot config from env. Portal ID + Form GUID are required;
+ * access token is optional (only needed for CRM operations, not form
+ * submit). Returns null when the minimum config (portal + form) is
+ * absent, unless HUBSPOT_REQUIRED=true, in which case we throw.
+ */
 export function loadHubspotConfig(): HubspotConfig | null {
   const token = process.env.HUBSPOT_ACCESS_TOKEN;
   const portal = process.env.HUBSPOT_PORTAL_ID;
   const form = process.env.HUBSPOT_TRIAL_FORM_GUID;
-  if (!token || !portal || !form) {
+  if (!portal || !form) {
     if (process.env.HUBSPOT_REQUIRED === "true") {
       throw new Error(
-        "HubSpot required but HUBSPOT_ACCESS_TOKEN / HUBSPOT_PORTAL_ID / HUBSPOT_TRIAL_FORM_GUID not set",
+        "HubSpot required but HUBSPOT_PORTAL_ID / HUBSPOT_TRIAL_FORM_GUID not set",
       );
     }
     return null;
   }
   return {
-    accessToken: token,
+    accessToken: token || undefined,
     portalId: portal,
     trialFormGuid: form,
     apiBaseUrl: process.env.HUBSPOT_API_BASE_URL ?? "https://api.hubapi.com",
     formsBaseUrl: process.env.HUBSPOT_FORMS_BASE_URL ?? "https://api.hsforms.com",
   };
+}
+
+/** Assert the config has an access token before making a CRM call. */
+function requireAccessToken(cfg: HubspotConfig): string {
+  if (!cfg.accessToken) {
+    throw new HubspotError(
+      "HUBSPOT_ACCESS_TOKEN not set — CRM reads/writes unavailable; form submit only",
+      401,
+      null,
+    );
+  }
+  return cfg.accessToken;
 }
 
 export class HubspotError extends Error {
@@ -203,7 +228,7 @@ export async function findContactByCorrelationId(
   const res = await hsFetch<{ results: ContactRecord[] }>(log, {
     url: `${cfg.apiBaseUrl}/crm/v3/objects/contacts/search`,
     method: "POST",
-    headers: { Authorization: `Bearer ${cfg.accessToken}` },
+    headers: { Authorization: `Bearer ${requireAccessToken(cfg)}` },
     label: "POST /crm/v3/objects/contacts/search",
     body: {
       filterGroups: [
@@ -243,7 +268,7 @@ export async function findContactByEmail(
     const res = await hsFetch<ContactRecord>(log, {
       url: `${cfg.apiBaseUrl}/crm/v3/objects/contacts/${encodeURIComponent(email)}?idProperty=email`,
       method: "GET",
-      headers: { Authorization: `Bearer ${cfg.accessToken}` },
+      headers: { Authorization: `Bearer ${requireAccessToken(cfg)}` },
       label: "GET /crm/v3/objects/contacts/:email",
     });
     return res;
@@ -264,7 +289,7 @@ export async function updateContact(
   return hsFetch<{ id: string }>(log, {
     url: `${cfg.apiBaseUrl}/crm/v3/objects/contacts/${encodeURIComponent(contactId)}`,
     method: "PATCH",
-    headers: { Authorization: `Bearer ${cfg.accessToken}` },
+    headers: { Authorization: `Bearer ${requireAccessToken(cfg)}` },
     label: "PATCH /crm/v3/objects/contacts/:id",
     body: { properties: stripped },
   });
